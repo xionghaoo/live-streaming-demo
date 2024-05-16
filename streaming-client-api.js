@@ -3,6 +3,10 @@ import DID_API from './api.json' assert { type: 'json' };
 
 if (DID_API.key == '🤫') alert('Please put your api key inside ./api.json and restart..');
 
+// const HOST = "http://127.0.0.1:8000"
+const HOST = "https://ai-dev.udicaria.com"
+const PREFIX = "digi/chat"
+
 const RTCPeerConnection = (
   window.RTCPeerConnection ||
   window.webkitRTCPeerConnection ||
@@ -14,6 +18,7 @@ let pcDataChannel;
 let streamId;
 let sessionId;
 let sessionClientAnswer;
+let token;
 
 let statsIntervalId;
 let lastBytesReceived;
@@ -35,18 +40,21 @@ const signalingStatusLabel = document.getElementById('signaling-status-label');
 const streamingStatusLabel = document.getElementById('streaming-status-label');
 const streamEventLabel = document.getElementById('stream-event-label');
 
-const presenterInputByService = {
-  talks: {
-    source_url: 'https://d-id-public-bucket.s3.amazonaws.com/or-roman.jpg',
-  },
-  clips: {
-    presenter_id: 'rian-lZC6MmWfC1',
-    driver_id: 'mXra4jY38i',
-  },
-};
-
+// const presenterInputByService = {
+//   talks: {
+//     // source_url: 'https://d-id-public-bucket.s3.amazonaws.com/or-roman.jpg',
+//     source_url: 's3://d-id-images-prod/auth0|663f14278854fe7ea1edfc86/img_L56jS8lIq48e9K4RZyn3M/52fe94ea0aa307e0010bd6db5c3ed4f2.png',
+//     // source_url: 'https://roboland-ai.oss-cn-shenzhen.aliyuncs.com/test/youdi_intro.png',
+//   },
+//   clips: {
+//     presenter_id: 'rian-lZC6MmWfC1',
+//     driver_id: 'mXra4jY38i',
+//   },
+// };
+console.log("initial")
 const connectButton = document.getElementById('connect-button');
 connectButton.onclick = async () => {
+  console.log('click connect')
   if (peerConnection && peerConnection.connectionState === 'connected') {
     return;
   }
@@ -59,18 +67,27 @@ connectButton.onclick = async () => {
    * The idle streaming process is transparent to the user and is concealed by triggering a 'stream/ready' event on the data channel,
    * indicating that idle streaming has concluded and the stream channel is ready for use.
    */
-  const sessionResponse = await fetchWithRetries(`${DID_API.url}/${DID_API.service}/streams`, {
+  console.log("fetch streams")
+  const sessionResponse = await fetchWithRetries(`${HOST}/${PREFIX}/streams`, {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${DID_API.key}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json; charset=utf-8",
     },
-    body: JSON.stringify({ ...presenterInputByService[DID_API.service], stream_warmup }),
+    // body: JSON.stringify({ ...presenterInputByService[DID_API.service], stream_warmup }),
+    body: JSON.stringify({
+      // avatar_url: "https://roboland-ai.oss-cn-shenzhen.aliyuncs.com/test/avatar/nurse4.png",
+      // avatar_url: "https://d-id-public-bucket.s3.amazonaws.com/or-roman.jpg",
+      avatar_url: "https://roboland-ai.oss-cn-shenzhen.aliyuncs.com/test/avatar/ai_product.png",
+      stream_warmup: stream_warmup,
+      need_upload_img: false
+    })
   });
-
-  const { id: newStreamId, offer, ice_servers: iceServers, session_id: newSessionId } = await sessionResponse.json();
+  const resp = await sessionResponse.json()
+  console.log('resp', resp)
+  const { id: newStreamId, offer, ice_servers: iceServers, session_id: newSessionId, did_token: didToken } = resp["data"];
   streamId = newStreamId;
   sessionId = newSessionId;
+  token = didToken;
 
   try {
     sessionClientAnswer = await createPeerConnection(offer, iceServers);
@@ -81,14 +98,15 @@ connectButton.onclick = async () => {
     return;
   }
 
-  const sdpResponse = await fetch(`${DID_API.url}/${DID_API.service}/streams/${streamId}/sdp`, {
+  const sdpResponse = await fetch(`${HOST}/${PREFIX}/streams/${streamId}/sdp`, {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${DID_API.key}`,
+      // Authorization: `Basic ${DID_API.key}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      answer: sessionClientAnswer,
+      token: token,
+      answer_sdp: sessionClientAnswer["sdp"],
       session_id: sessionId,
     }),
   });
@@ -101,25 +119,27 @@ startButton.onclick = async () => {
     (peerConnection?.signalingState === 'stable' || peerConnection?.iceConnectionState === 'connected') &&
     isStreamReady
   ) {
-    const playResponse = await fetchWithRetries(`${DID_API.url}/${DID_API.service}/streams/${streamId}`, {
+    const playResponse = await fetchWithRetries(`${HOST}/${PREFIX}/streams/${streamId}`, {
       method: 'POST',
       headers: {
-        Authorization: `Basic ${DID_API.key}`,
+        // Authorization: `Basic ${DID_API.key}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        script: {
-          type: 'audio',
-          audio_url: 'https://d-id-public-bucket.s3.us-west-2.amazonaws.com/webrtc.mp3',
-        },
-        ...(DID_API.service === 'clips' && {
-          background: {
-            color: '#FFFFFF',
-          },
-        }),
-        config: {
-          stitch: true,
-        },
+        // script: {
+        //   type: 'audio',
+        //   audio_url: 'https://d-id-public-bucket.s3.us-west-2.amazonaws.com/webrtc.mp3',
+        // },
+        // ...(DID_API.service === 'clips' && {
+        //   background: {
+        //     color: '#FFFFFF',
+        //   },
+        // }),
+        // config: {
+        //   stitch: true,
+        // },
+        token: token,
+        text: "你好，我是数字人小优，请多多指教",
         session_id: sessionId,
       }),
     });
@@ -128,13 +148,13 @@ startButton.onclick = async () => {
 
 const destroyButton = document.getElementById('destroy-button');
 destroyButton.onclick = async () => {
-  await fetch(`${DID_API.url}/${DID_API.service}/streams/${streamId}`, {
+  await fetch(`${HOST}/${PREFIX}/streams/${streamId}`, {
     method: 'DELETE',
     headers: {
-      Authorization: `Basic ${DID_API.key}`,
+      // Authorization: `Basic ${DID_API.key}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ session_id: sessionId }),
+    body: JSON.stringify({ session_id: sessionId, token: token }),
   });
 
   stopAllStreams();
@@ -150,13 +170,14 @@ function onIceCandidate(event) {
   if (event.candidate) {
     const { candidate, sdpMid, sdpMLineIndex } = event.candidate;
 
-    fetch(`${DID_API.url}/${DID_API.service}/streams/${streamId}/ice`, {
+    fetch(`${HOST}/${PREFIX}/streams/${streamId}/ice`, {
       method: 'POST',
       headers: {
-        Authorization: `Basic ${DID_API.key}`,
+        // Authorization: `Basic ${DID_API.key}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        token,
         candidate,
         sdpMid,
         sdpMLineIndex,
@@ -165,13 +186,14 @@ function onIceCandidate(event) {
     });
   } else {
     // For the initial 2 sec idle stream at the beginning of the connection, we utilize a null ice candidate.
-    fetch(`${DID_API.url}/${DID_API.service}/streams/${streamId}/ice`, {
+    fetch(`${HOST}/${PREFIX}/streams/${streamId}/ice`, {
       method: 'POST',
       headers: {
         Authorization: `Basic ${DID_API.key}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        token: token,
         session_id: sessionId,
       }),
     });
@@ -347,7 +369,7 @@ function setStreamVideoElement(stream) {
 }
 
 function playIdleVideo() {
-  idleVideoElement.src = DID_API.service == 'clips' ? 'rian_idle.mp4' : 'or_idle.mp4';
+  idleVideoElement.src = DID_API.service == 'clips' ? 'rian_idle.mp4' : 'p_idle.mp4';
 }
 
 function stopAllStreams() {
@@ -388,7 +410,7 @@ function closePC(pc = peerConnection) {
 const maxRetryCount = 3;
 const maxDelaySec = 4;
 
-async function fetchWithRetries(url, options, retries = 1) {
+async function fetchWithRetries(url, options, retries = 0) {
   try {
     return await fetch(url, options);
   } catch (err) {
