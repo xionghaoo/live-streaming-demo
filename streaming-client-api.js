@@ -160,6 +160,7 @@ startButton.onclick = async () => {
         // },
         token: token,
         text: text,
+        voice_id: "zh-CN-XiaoxiaoNeural",
         session_id: sessionId,
       }),
     });
