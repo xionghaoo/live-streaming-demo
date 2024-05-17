@@ -167,6 +167,7 @@
   <body>
     <!-- adde "id=content" -->
     <div id="content">
+      <label>输入</label><input id="input-text" style="margin-left: 10px;width: 300px;" type="text">
       <!-- added "id=video-wrapper" -->
       <div id="video-wrapper">
         <div>
@@ -175,6 +176,8 @@
         </div>
       </div>
       <br />
+
+      <div id="credits" style="margin-bottom: 10px"></div>
 
       <!-- added div#buttons -->
       <div id="buttons">
@@ -193,6 +196,8 @@
         Last stream event: <label id="stream-event-label"></label><br />
         Streaming status: <label id="streaming-status-label"></label><br />
       </div>
+
+      <p id="out-text"></p>
     </div>
 
     <script type="module" src="./index.js"></script>

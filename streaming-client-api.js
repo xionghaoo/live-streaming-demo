@@ -4,7 +4,7 @@ import DID_API from './api.json' assert { type: 'json' };
 if (DID_API.key == '🤫') alert('Please put your api key inside ./api.json and restart..');
 
 // const HOST = "http://127.0.0.1:8000"
-const HOST = "https://ai-dev.udicaria.com"
+const HOST = "https://ai.udicaria.com"
 const PREFIX = "digi/chat"
 
 const RTCPeerConnection = (
@@ -39,6 +39,9 @@ const iceGatheringStatusLabel = document.getElementById('ice-gathering-status-la
 const signalingStatusLabel = document.getElementById('signaling-status-label');
 const streamingStatusLabel = document.getElementById('streaming-status-label');
 const streamEventLabel = document.getElementById('stream-event-label');
+const creditsLabel = document.getElementById('credits');
+const inputText = document.getElementById('input-text');
+const outText = document.getElementById('out-text');
 
 // const presenterInputByService = {
 //   talks: {
@@ -51,7 +54,18 @@ const streamEventLabel = document.getElementById('stream-event-label');
 //     driver_id: 'mXra4jY38i',
 //   },
 // };
-console.log("initial")
+
+async function getCredits() {
+  const resp = await fetchWithRetries(`${HOST}/digi/tokens/credit?token_id=${token}`, {
+    method: 'GET'
+  });
+  let d = await resp.json()
+  console.log("getCredits: ", d)
+  creditsLabel.innerText = "剩余积分：" + d["data"]["remaining"]
+}
+
+creditsLabel.innerText = "剩余积分：0"
+
 const connectButton = document.getElementById('connect-button');
 connectButton.onclick = async () => {
   console.log('click connect')
@@ -88,6 +102,7 @@ connectButton.onclick = async () => {
   streamId = newStreamId;
   sessionId = newSessionId;
   token = didToken;
+  await getCredits()
 
   try {
     sessionClientAnswer = await createPeerConnection(offer, iceServers);
@@ -119,6 +134,11 @@ startButton.onclick = async () => {
     (peerConnection?.signalingState === 'stable' || peerConnection?.iceConnectionState === 'connected') &&
     isStreamReady
   ) {
+    let text = inputText.value
+    if (!text) {
+      alert("请输入说话文本");
+      return
+    }
     const playResponse = await fetchWithRetries(`${HOST}/${PREFIX}/streams/${streamId}`, {
       method: 'POST',
       headers: {
@@ -139,7 +159,7 @@ startButton.onclick = async () => {
         //   stitch: true,
         // },
         token: token,
-        text: "你好，我是数字人小优，请多多指教",
+        text: text,
         session_id: sessionId,
       }),
     });
@@ -296,9 +316,12 @@ function onStreamEvent(message) {
     switch (event) {
       case 'stream/started':
         status = 'started';
+        outText.innerText = inputText.value
         break;
       case 'stream/done':
         status = 'done';
+        outText.innerText = ""
+        getCredits().then().catch()
         break;
       case 'stream/ready':
         status = 'ready';
@@ -354,6 +377,7 @@ async function createPeerConnection(offer, iceServers) {
 
 function setStreamVideoElement(stream) {
   if (!stream) return;
+  console.log('stream', stream)
 
   streamVideoElement.srcObject = stream;
   streamVideoElement.loop = false;
