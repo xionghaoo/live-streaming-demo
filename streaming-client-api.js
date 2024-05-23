@@ -148,7 +148,6 @@ startButton.onclick = async () => {
       body: JSON.stringify({
         // script: {
         //   type: 'audio',
-        //   audio_url: 'https://d-id-public-bucket.s3.us-west-2.amazonaws.com/webrtc.mp3',
         // },
         // ...(DID_API.service === 'clips' && {
         //   background: {
@@ -161,6 +160,7 @@ startButton.onclick = async () => {
         token: token,
         text: text,
         voice_id: "zh-CN-XiaoxiaoNeural",
+        // audio_url: 'https://d-id-public-bucket.s3.us-west-2.amazonaws.com/webrtc.mp3',
         session_id: sessionId,
       }),
     });
@@ -378,8 +378,6 @@ async function createPeerConnection(offer, iceServers) {
 
 function setStreamVideoElement(stream) {
   if (!stream) return;
-  console.log('stream', stream)
-
   streamVideoElement.srcObject = stream;
   streamVideoElement.loop = false;
   streamVideoElement.mute = !isStreamReady;
